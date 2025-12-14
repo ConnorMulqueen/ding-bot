@@ -370,6 +370,16 @@ cron.schedule("0 * * * *", async () => {
   await runHourlyCheck();
 });
 
+// Cron job: runs every 15 minutes
+cron.schedule("*/15 * * * *", async () => {
+  console.log("Running WoW level check every 15 minutes...");
+  await runHourlyCheck();
+});
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function runHourlyCheck() {
   console.log("Running WoW level check...");
 
@@ -386,19 +396,19 @@ async function runHourlyCheck() {
 
     console.log("new level", newLevel.level, "last level", entry.lastLevel);
     if (newLevel.level > entry.lastLevel) {
-      console.log(`Level up detected for ${entry.name}: ${entry.lastLevel} → ${newLevel}`);
+      console.log(`Level up detected for ${entry.name}: ${entry.lastLevel} → ${newLevel.level}`);
       const channel = await client.channels.fetch(entry.channelId);
 
       const embed = new EmbedBuilder()
         .setTitle(`🎉 Level Up!`)
-        .setColor(0xffa500) // Orange color for the embed
+        .setColor(0xffa500)
         .setDescription(
           `🔥 **${entry.name}** leveled up! **${entry.lastLevel} → ${newLevel.level}**\n` +
           `• **Race:** ${entry.race}\n` +
           `• **Class:** ${entry.characterClass}`
         )
-        .setThumbnail(getImageForRace(entry.race)) // Add race image
-        .setImage(getImageForClass(entry.characterClass)) // Add class image
+        .setThumbnail(getImageForRace(entry.race))
+        .setImage(getImageForClass(entry.characterClass))
         .setFooter({ text: "Keep up the grind!" });
 
       channel.send({ embeds: [embed] });
@@ -411,6 +421,9 @@ async function runHourlyCheck() {
       entry.lastChecked = new Date().toISOString();
       saveTracked();
     }
+
+    // Add a delay between requests
+    await delay(2000); // 2 seconds
   }
 }
 
