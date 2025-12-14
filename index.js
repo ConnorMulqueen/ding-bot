@@ -25,7 +25,7 @@ async function getCharacterLevel(server, name) {
     const url = `https://classicwowarmory.com/character/us/${server}/${name}`;
     const res = await axios.get(url, {
       headers: {
-        "Cache-Control": "no-cache",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
         "Pragma": "no-cache",
         "Expires": "0",
       },
