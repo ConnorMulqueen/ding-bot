@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Client, GatewayIntentBits } from "discord.js";
+import { Client, GatewayIntentBits, EmbedBuilder } from "discord.js"; // Import EmbedBuilder for creating embeds
 import axios from "axios";
 import * as cheerio from "cheerio";
 import cron from "node-cron";
@@ -36,7 +36,7 @@ async function getCharacterLevel(server, name) {
       return null;
     }
 
-    const text = levelSpan.text().trim();  // "Level 28"
+    const text = levelSpan.text().trim(); // "Level 28"
     const level = parseInt(text.replace("Level", "").trim(), 10);
 
     if (isNaN(level)) {
@@ -44,15 +44,81 @@ async function getCharacterLevel(server, name) {
       return null;
     }
 
-    return level;
+    // Extract race and class
+    const race = $(".extra span:nth-child(2)").text().trim(); // "Orc"
+    const characterClass = $(".extra span.class-colors").text().trim(); // "Hunter"
+
+    if (!race || !characterClass) {
+      console.log(`Failed to extract race or class for ${name} on ${server}`);
+      return null;
+    }
+
+    return { level, race, characterClass };
   } catch (err) {
     console.error("Error fetching character:", err);
     return null;
   }
 }
 
+function getImageForRace(race) {
+  const raceImages = {
+    Orc: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_orc-male.png",
+    Human: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_human-male.png",
+    NightElf: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_nightelf-male.png",
+    Undead: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_undead-male.png",
+    Troll: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_troll-male.png",
+    Dwarf: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_dwarf-male.png",
+    Gnome: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_gnome-male.png",
+    Tauren: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_tauren-male.png",
+  };
+
+  return raceImages[race] || "https://warcraft.wiki.gg/images/Ui-charactercreate-races_default.png"; // Default image if race not found
+}
+
+function getImageForClass(characterClass) {
+  const classImages = {
+    Hunter: "https://wow.zamimg.com/images/wow/icons/medium/class_hunter.jpg",
+    Warrior: "https://wow.zamimg.com/images/wow/icons/medium/class_warrior.jpg",
+    Mage: "https://wow.zamimg.com/images/wow/icons/medium/class_mage.jpg",
+    Rogue: "https://wow.zamimg.com/images/wow/icons/medium/class_rogue.jpg",
+    Priest: "https://wow.zamimg.com/images/wow/icons/medium/class_priest.jpg",
+    Warlock: "https://wow.zamimg.com/images/wow/icons/medium/class_warlock.jpg",
+    Paladin: "https://wow.zamimg.com/images/wow/icons/medium/class_paladin.jpg",
+    Shaman: "https://wow.zamimg.com/images/wow/icons/medium/class_shaman.jpg",
+    Druid: "https://wow.zamimg.com/images/wow/icons/medium/class_druid.jpg",
+  };
+
+  return classImages[characterClass] || "https://wow.zamimg.com/images/wow/icons/medium/class_default.jpg"; // Default image if class not found
+}
 
 client.on("messageCreate", async (msg) => {
+  // -----------------------------
+  // !listnames command
+  // -----------------------------
+  if (msg.content === "!listnames") {
+    if (Object.keys(tracked).length === 0) {
+      msg.reply("No characters are currently being tracked.");
+      return;
+    }
+
+    let response = "**Tracked Characters:**\n";
+
+    for (const key in tracked) {
+      const entry = tracked[key];
+      response += `• **${entry.name}** (Level: ${entry.lastLevel}, Class: ${entry.characterClass})\n`;
+    }
+
+    // Discord messages have a character limit of 2000, so split the response if necessary
+    if (response.length > 2000) {
+      const chunks = response.match(/[\s\S]{1,1999}/g); // Split into chunks of 1999 characters
+      for (const chunk of chunks) {
+        await msg.reply(chunk);
+      }
+    } else {
+      msg.reply(response);
+    }
+  }
+
   // -----------------------------
   // !listtracks command
   // -----------------------------
@@ -62,16 +128,65 @@ client.on("messageCreate", async (msg) => {
       return;
     }
 
-    let output = "**Currently Tracked Characters:**\n\n";
+    const embed = new EmbedBuilder()
+      .setTitle("Currently Tracked Characters")
+      .setColor(0x00ae86) // Set a nice blue color for the embed
+      .setDescription("Here are the characters being tracked:");
 
     for (const key in tracked) {
       const entry = tracked[key];
-      const channelMention = `<#${entry.channelId}>`;
+      const lastChecked = entry.lastChecked
+        ? new Date(entry.lastChecked).toLocaleString()
+        : "Unknown";
 
-      output += `• **${entry.name}** (Server: ${entry.server}) — Last Level: ${entry.lastLevel} — Announcing in: ${channelMention}\n`;
+      embed.addFields({
+        name: `**${entry.name}** (Server: ${entry.server})`,
+        value: `• **Level:** ${entry.lastLevel}\n• **Race:** ${entry.race}\n• **Class:** ${entry.characterClass}\n• **Last Checked:** ${lastChecked}\n• **Announcing in:** <#${entry.channelId}>`,
+        inline: false,
+      });
     }
 
-    msg.reply(output);
+    msg.reply({ embeds: [embed] });
+    return;
+  }
+
+  // -----------------------------
+  // !check command
+  // -----------------------------
+  if (msg.content.startsWith("!check")) {
+    const parts = msg.content.split(" ");
+    if (parts.length < 2) {
+      msg.reply("Usage: !check [characterName]");
+      return;
+    }
+
+    const name = parts[1].toLowerCase();
+
+    // Find the character in the tracked list
+    const trackedCharacter = Object.values(tracked).find(
+      (entry) => entry.name.toLowerCase() === name
+    );
+
+    if (!trackedCharacter) {
+      msg.reply(`Character **${name}** is not being tracked.`);
+      return;
+    }
+
+    const { server, lastLevel, race, characterClass, lastChecked } = trackedCharacter;
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Stats for ${trackedCharacter.name}`)
+      .setColor(0x00ae86) // Set a nice blue color for the embed
+      .setDescription(
+        `• **Server:** ${server}\n• **Level:** ${lastLevel}\n• **Race:** ${race}\n• **Class:** ${characterClass}\n• **Last Checked:** ${
+          lastChecked ? new Date(lastChecked).toLocaleString() : "Unknown"
+        }`
+      )
+      .setThumbnail(getImageForRace(race)) // Add race image
+      .setImage(getImageForClass(characterClass)) // Add class image
+      .setFooter({ text: "Character stats retrieved successfully." });
+
+    msg.reply({ embeds: [embed] });
     return;
   }
 
@@ -89,25 +204,144 @@ client.on("messageCreate", async (msg) => {
   const name = parts[1].toLowerCase();
   const server = parts[2].toLowerCase();
 
-  const level = await getCharacterLevel(server, name);
+  const characterData = await getCharacterLevel(server, name);
 
-  if (level === null) {
+  if (!characterData) {
     msg.reply("Could not fetch character. Check spelling or try again.");
     return;
   }
+
+  const { level, race, characterClass } = characterData;
 
   tracked[`${server}-${name}`] = {
     server,
     name,
     lastLevel: level,
-    channelId: msg.channel.id
+    race,
+    characterClass,
+    lastChecked: new Date().toISOString(),
+    channelId: msg.channel.id,
   };
 
   saveTracked();
 
-  msg.reply(`Tracking **${name}** on **${server}** (Level ${level})`);
+  const embed = new EmbedBuilder()
+    .setTitle(`🎯 Tracking Started for ${name}`)
+    .setColor(0x00ff00) // Green color for success
+    .setDescription(
+      `Tracking **${name}** on **${server}**:\n` +
+      `• **Level:** ${level}\n` +
+      `• **Race:** ${race}\n` +
+      `• **Class:** ${characterClass}`
+    )
+    .setThumbnail(getImageForClass(characterClass)) // Class image as the thumbnail
+    .setImage(getImageForRace(race)) // Race image as the main image
+    .setFooter({ text: "Tracking updates will be announced in this channel." });
+
+  msg.reply({ embeds: [embed] });
 });
 
+client.on("messageCreate", async (msg) => {
+  // -----------------------------
+  // !batchTrack command
+  // -----------------------------
+  if (msg.content.startsWith("!batchTrack")) {
+    const input = msg.content.replace("!batchTrack", "").trim();
+
+    if (!input) {
+      msg.reply("Usage: !batchTrack [character name] [server name], [character name] [server name], ...");
+      return;
+    }
+
+    // Split the input into individual character-server pairs
+    const pairs = input.split(",").map(pair => pair.trim());
+    let successCount = 0;
+
+    for (const pair of pairs) {
+      const parts = pair.split(" ");
+      if (parts.length < 2) {
+        msg.reply(`Invalid format for: "${pair}". Skipping.`);
+        continue;
+      }
+
+      const name = parts[0].toLowerCase();
+      const server = parts.slice(1).join(" ").toLowerCase();
+
+      const characterData = await getCharacterLevel(server, name);
+
+      if (!characterData) {
+        msg.reply(`Could not fetch character: **${name}** on **${server}**. Skipping.`);
+        continue;
+      }
+
+      const { level, race, characterClass } = characterData;
+
+      tracked[`${server}-${name}`] = {
+        server,
+        name,
+        lastLevel: level,
+        race,
+        characterClass,
+        lastChecked: new Date().toISOString(),
+        channelId: msg.channel.id,
+      };
+
+      successCount++;
+    }
+
+    saveTracked();
+
+    msg.reply(`✅ Successfully tracked **${successCount}** characters!`);
+  }
+
+  // -----------------------------
+  // !debugLevelUp command
+  // -----------------------------
+  if (msg.content.startsWith("!debugLevelUp")) {
+    const parts = msg.content.split(" ");
+    if (parts.length < 2) {
+      msg.reply("Usage: !debugLevelUp [characterName]");
+      return;
+    }
+
+    const name = parts[1].toLowerCase();
+
+    // Find the character in the tracked list
+    const trackedCharacter = Object.values(tracked).find(
+      (entry) => entry.name.toLowerCase() === name
+    );
+
+    if (!trackedCharacter) {
+      msg.reply(`Character **${name}** is not being tracked.`);
+      return;
+    }
+
+    const { server, lastLevel, race, characterClass, channelId } = trackedCharacter;
+
+    // Simulate a level-up for debugging
+    const newLevel = lastLevel + 1; // Increment the level for testing
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🎉 Level Up!`)
+      .setColor(0xffa500) // Orange color for the embed
+      .setDescription(
+        `🔥 **${trackedCharacter.name}** leveled up! **${lastLevel} → ${newLevel}**\n` +
+        `• **Race:** ${race}\n` +
+        `• **Class:** ${characterClass}`
+      )
+      .setThumbnail(getImageForRace(race)) // Add race image
+      .setImage(getImageForClass(characterClass)) // Add class image
+      .setFooter({ text: "This is a debug message. No actual level-up occurred." });
+
+    // Send the debug message to the channel where the command was issued
+    msg.reply({ embeds: [embed] });
+  }
+
+  // -----------------------------
+  // Other commands (e.g., !track, !check)
+  // -----------------------------
+  // Existing code for other commands...
+});
 
 // Cron job: runs every hour on the hour
 cron.schedule("0 * * * *", async () => {
@@ -122,11 +356,27 @@ cron.schedule("0 * * * *", async () => {
     if (newLevel > entry.lastLevel) {
       // Character leveled!
       const channel = await client.channels.fetch(entry.channelId);
-      channel.send(
-        `🔥 **${entry.name}** leveled up! **${entry.lastLevel} → ${newLevel}**`
-      );
+
+      const embed = new EmbedBuilder()
+        .setTitle(`🎉 Level Up!`)
+        .setColor(0xffa500) // Orange color for the embed
+        .setDescription(
+          `🔥 **${entry.name}** leveled up! **${entry.lastLevel} → ${newLevel}**\n` +
+          `• **Race:** ${entry.race}\n` +
+          `• **Class:** ${entry.characterClass}`
+        )
+        .setThumbnail(getImageForRace(entry.race)) // Add race image
+        .setImage(getImageForClass(entry.characterClass)) // Add class image
+        .setFooter({ text: "Keep up the grind!" });
+
+      channel.send({ embeds: [embed] });
 
       entry.lastLevel = newLevel;
+      entry.lastChecked = new Date().toISOString();
+      saveTracked();
+    } else {
+      // Update the lastChecked even if no level up
+      entry.lastChecked = new Date().toISOString();
       saveTracked();
     }
   }
