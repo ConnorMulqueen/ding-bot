@@ -1,0 +1,1 @@
+scrape wowclassicamory.com for character info, discord bot sends messages on level up
