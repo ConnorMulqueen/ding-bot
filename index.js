@@ -338,6 +338,15 @@ client.on("messageCreate", async (msg) => {
   }
 
   // -----------------------------
+  // !hardrefresh command
+  // -----------------------------
+  if (msg.content === "!hardrefresh") {
+    msg.reply("🔄 Running a manual refresh of the hourly level check...");
+    await runHourlyCheck();
+    msg.reply("✅ Manual refresh complete!");
+  }
+
+  // -----------------------------
   // Other commands (e.g., !track, !check)
   // -----------------------------
   // Existing code for other commands...
@@ -346,15 +355,25 @@ client.on("messageCreate", async (msg) => {
 // Cron job: runs every hour on the hour
 cron.schedule("0 * * * *", async () => {
   console.log("Running hourly WoW level check...");
+  await runHourlyCheck();
+});
+
+async function runHourlyCheck() {
+  console.log("Running WoW level check...");
 
   for (const key in tracked) {
     const entry = tracked[key];
+    console.log(`Checking character: ${entry.name} on ${entry.server}`);
+
     const newLevel = await getCharacterLevel(entry.server, entry.name);
 
-    if (newLevel === null) continue;
+    if (newLevel === null) {
+      console.log(`Failed to fetch level for ${entry.name}. Skipping.`);
+      continue;
+    }
 
     if (newLevel > entry.lastLevel) {
-      // Character leveled!
+      console.log(`Level up detected for ${entry.name}: ${entry.lastLevel} → ${newLevel}`);
       const channel = await client.channels.fetch(entry.channelId);
 
       const embed = new EmbedBuilder()
@@ -375,12 +394,12 @@ cron.schedule("0 * * * *", async () => {
       entry.lastChecked = new Date().toISOString();
       saveTracked();
     } else {
-      // Update the lastChecked even if no level up
+      console.log(`No level up for ${entry.name}.`);
       entry.lastChecked = new Date().toISOString();
       saveTracked();
     }
   }
-});
+}
 
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
