@@ -203,22 +203,24 @@ client.on("messageCreate", async (msg) => {
       return;
     }
 
-    const { server, lastLevel, race, characterClass, lastChecked } = trackedCharacter;
+    const { server, lastLevel, race, characterClass, equippedItemLevel, lastChecked } = trackedCharacter;
 
     const embed = new EmbedBuilder()
       .setTitle(`Stats for ${trackedCharacter.name}`)
       .setColor(0x00ae86) // Set a nice blue color for the embed
       .setDescription(
-        `• **Server:** ${server}\n• **Level:** ${lastLevel}\n• **Race:** ${race}\n• **Class:** ${characterClass}\n• **Last Checked:** ${
-          lastChecked ? new Date(lastChecked).toLocaleString() : "Unknown"
-        }`
+        `• **Server:** ${server}\n` +
+        `• **Level:** ${lastLevel}\n` +
+        `• **Race:** ${race}\n` +
+        `• **Class:** ${characterClass}\n` +
+        `• **Equipped Item Level:** ${equippedItemLevel}\n` +
+        `• **Last Checked:** ${lastChecked ? new Date(lastChecked).toLocaleString() : "Unknown"}`
       )
       .setThumbnail(getImageForRace(race)) // Add race image
       .setImage(getImageForClass(characterClass)) // Add class image
       .setFooter({ text: "Character stats retrieved successfully." });
 
     msg.reply({ embeds: [embed] });
-    return;
   }
 
   // -----------------------------
@@ -306,7 +308,7 @@ client.on("messageCreate", async (msg) => {
         continue;
       }
 
-      const { level, race, characterClass } = characterData;
+      const { level, race, characterClass, equippedItemLevel } = characterData;
 
       tracked[`${server}-${name}`] = {
         server,
@@ -314,6 +316,7 @@ client.on("messageCreate", async (msg) => {
         lastLevel: level,
         race,
         characterClass,
+        equippedItemLevel, // Store equipped item level
         lastChecked: new Date().toISOString(),
         channelId: msg.channel.id,
       };
