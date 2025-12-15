@@ -370,12 +370,6 @@ cron.schedule("0 * * * *", async () => {
   await runHourlyCheck();
 });
 
-// Cron job: runs every 15 minutes
-cron.schedule("*/15 * * * *", async () => {
-  console.log("Running WoW level check every 15 minutes...");
-  await runHourlyCheck();
-});
-
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
