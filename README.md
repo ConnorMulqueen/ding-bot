@@ -1,7 +1,7 @@
 
 
 # ![hunters_mark](https://github.com/user-attachments/assets/dc14a029-67cd-4c27-8283-799f7ac6ae2a) Ding bot 
-A Discord Bot that sends messages on Classic WoW character level up on tracked characters via polling Blizzard's official API
+A Discord Bot that tracks Classic WoW character levels via Blizzard API and sends discord messages level up (aka DINGs)
 
 <img width="448" height="871" alt="image" src="https://github.com/user-attachments/assets/a7304735-57c2-45f9-8f3a-7fdc6a584021" />
 
