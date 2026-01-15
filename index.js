@@ -53,7 +53,7 @@ async function getCharacterData(server, name) {
       await fetchBlizzardAccessToken();
     }
 
-    const url = `https://us.api.blizzard.com/profile/wow/character/${server}/${name}?namespace=profile-classic1x-us`;
+    const url = `https://us.api.blizzard.com/profile/wow/character/${server}/${name}?namespace=profile-classic-us`;
     console.log(`Fetching character data from: ${url}`);
 
     const response = await axios.get(url, {
