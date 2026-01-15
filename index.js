@@ -15,9 +15,17 @@ const client = new Client({
 // Load tracked characters
 let tracked = JSON.parse(fs.readFileSync("./tracked.json", "utf8"));
 
+// Load fun facts
+const funFacts = JSON.parse(fs.readFileSync("./funFacts.json", "utf8"));
+
 // Save helper
 function saveTracked() {
   fs.writeFileSync("./tracked.json", JSON.stringify(tracked, null, 2));
+}
+
+// Helper function to get a random fun fact
+function getRandomFunFact() {
+  return funFacts[Math.floor(Math.random() * funFacts.length)];
 }
 
 // Fetch Blizzard API access token
@@ -58,7 +66,7 @@ async function getCharacterData(server, name) {
     } else if (server === "doomhowl") {
       namespace = "profile-classic1x-us";
     } else {
-      namespace = "profile-classic-us"; // yolo
+      namespace = "profile-classic-us"; // Default namespace
     }
 
     const url = `https://us.api.blizzard.com/profile/wow/character/${server}/${name}?namespace=${namespace}`;
@@ -70,14 +78,15 @@ async function getCharacterData(server, name) {
       },
     });
 
-    const { level, race, character_class: characterClass, equipped_item_level: equippedItemLevel } = response.data;
+    const { level, race, character_class: characterClass, equipped_item_level: equippedItemLevel, gender } = response.data;
 
     // Extract the `name` property from `race` and `character_class`
     const raceName = race?.name.en_US || "Unknown Race";
     const className = characterClass?.name.en_US || "Unknown Class";
+    const genderType = gender?.type || "MALE"; // Default to MALE if not provided
 
     console.log(
-      `Fetched data for ${name}: Level ${level}, Race ${raceName}, Class ${className}, Equipped Item Level ${equippedItemLevel}`
+      `Fetched data for ${name}: Level ${level}, Race ${raceName}, Class ${className}, Gender ${genderType}, Equipped Item Level ${equippedItemLevel}`
     );
 
     return {
@@ -85,6 +94,7 @@ async function getCharacterData(server, name) {
       race: raceName, // Extracted race name
       characterClass: className, // Extracted class name
       equippedItemLevel: equippedItemLevel || 0, // Default to 0 if not available
+      gender: genderType, // Extracted gender
     };
   } catch (err) {
     if (err.response?.status === 401) {
@@ -98,19 +108,52 @@ async function getCharacterData(server, name) {
   }
 }
 
-function getImageForRace(race) {
+function getImageForRace(race, gender) {
   const raceImages = {
-    Orc: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_orc-male.png",
-    Human: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_human-male.png",
-    NightElf: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_nightelf-male.png",
-    Undead: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_undead-male.png",
-    Troll: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_troll-male.png",
-    Dwarf: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_dwarf-male.png",
-    Gnome: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_gnome-male.png",
-    Tauren: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_tauren-male.png",
+    Orc: {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_orc-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_orc-female.png",
+    },
+    Human: {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_human-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_human-female.png",
+    },
+    "Night Elf": {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_nightelf-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_nightelf-female.png",
+    },
+    Undead: {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_undead-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_undead-female.png",
+    },
+    Troll: {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_troll-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_troll-female.png",
+    },
+    Dwarf: {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_dwarf-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_dwarf-female.png",
+    },
+    Gnome: {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_gnome-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_gnome-female.png",
+    },
+    Tauren: {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_tauren-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_tauren-female.png",
+    },
+    "Blood Elf": {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_bloodelf-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_bloodelf-female.png",
+    },
+    Draenei: {
+      MALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_draenei-male.png",
+      FEMALE: "https://warcraft.wiki.gg/images/Ui-charactercreate-races_draenei-female.png",
+    },
   };
 
-  return raceImages[race] || "https://warcraft.wiki.gg/images/Ui-charactercreate-races_default.png"; // Default image if race not found
+  // Default to male image if gender or race is not found
+  return raceImages[race]?.[gender] || "https://warcraft.wiki.gg/images/Ui-charactercreate-races_default.png";
 }
 
 function getImageForClass(characterClass) {
@@ -211,20 +254,36 @@ client.on("messageCreate", async (msg) => {
       return;
     }
 
-    const { server, lastLevel, race, characterClass, equippedItemLevel, lastChecked } = trackedCharacter;
+    const characterData = await getCharacterData(trackedCharacter.server, trackedCharacter.name);
+
+    if (!characterData) {
+      msg.reply(`Could not fetch data for **${name}**. Please try again later.`);
+      return;
+    }
+
+    const { level, race, characterClass, equippedItemLevel, gender } = characterData;
+
+    // Update the tracked data with the latest gender and other fields
+    trackedCharacter.lastLevel = level;
+    trackedCharacter.race = race;
+    trackedCharacter.characterClass = characterClass;
+    trackedCharacter.equippedItemLevel = equippedItemLevel;
+    trackedCharacter.gender = gender; // Update the gender
+    trackedCharacter.lastChecked = new Date().toISOString();
+    saveTracked();
 
     const embed = new EmbedBuilder()
       .setTitle(`Stats for ${trackedCharacter.name}`)
       .setColor(0x00ae86) // Set a nice blue color for the embed
       .setDescription(
-        `• **Server:** ${server}\n` +
-        `• **Level:** ${lastLevel}\n` +
+        `• **Server:** ${trackedCharacter.server}\n` +
+        `• **Level:** ${level}\n` +
         `• **Race:** ${race}\n` +
         `• **Class:** ${characterClass}\n` +
         `• **Equipped Item Level:** ${equippedItemLevel}\n` +
-        `• **Last Checked:** ${lastChecked ? new Date(lastChecked).toLocaleString() : "Unknown"}`
+        `• **Last Checked:** ${new Date(trackedCharacter.lastChecked).toLocaleString()}`
       )
-      .setThumbnail(getImageForRace(race)) // Add race image
+      .setThumbnail(getImageForRace(race, gender)) // Add race image
       .setImage(getImageForClass(characterClass)) // Add class image
       .setFooter({ text: "Character stats retrieved successfully." });
 
@@ -251,7 +310,7 @@ client.on("messageCreate", async (msg) => {
       return;
     }
 
-    const { level, race, characterClass, equippedItemLevel } = characterData;
+    const { level, race, characterClass, equippedItemLevel, gender } = characterData;
 
     // Store the extracted data, including equipped item level
     tracked[`${server}-${name}`] = {
@@ -261,6 +320,7 @@ client.on("messageCreate", async (msg) => {
       race, // Already a string
       characterClass, // Already a string
       equippedItemLevel, // Store equipped item level
+      gender, // Store gender
       lastChecked: new Date().toISOString(),
       channelId: msg.channel.id,
     };
@@ -278,7 +338,7 @@ client.on("messageCreate", async (msg) => {
         `• **Equipped Item Level:** ${equippedItemLevel}`
       )
       .setThumbnail(getImageForClass(characterClass)) // Class image as the thumbnail
-      .setImage(getImageForRace(race)) // Race image as the main image
+      .setImage(getImageForRace(race, gender)) // Race image as the main image
       .setFooter({ text: "Tracking updates will be announced in this channel." });
 
     msg.reply({ embeds: [embed] });
@@ -316,7 +376,7 @@ client.on("messageCreate", async (msg) => {
         continue;
       }
 
-      const { level, race, characterClass, equippedItemLevel } = characterData;
+      const { level, race, characterClass, equippedItemLevel, gender } = characterData;
 
       tracked[`${server}-${name}`] = {
         server,
@@ -325,6 +385,7 @@ client.on("messageCreate", async (msg) => {
         race,
         characterClass,
         equippedItemLevel, // Store equipped item level
+        gender, // Store gender
         lastChecked: new Date().toISOString(),
         channelId: msg.channel.id,
       };
@@ -359,7 +420,7 @@ client.on("messageCreate", async (msg) => {
       return;
     }
 
-    const { server, lastLevel, race, characterClass, equippedItemLevel, channelId } = trackedCharacter;
+    const { server, lastLevel, race, characterClass, equippedItemLevel, channelId, gender } = trackedCharacter;
 
     // Simulate a level-up for debugging
     const newLevel = lastLevel + 1; // Increment the level for testing
@@ -373,9 +434,9 @@ client.on("messageCreate", async (msg) => {
         `• **Class:** ${characterClass}\n` +
         `• **Equipped Item Level:** ${equippedItemLevel}`
       )
-      .setThumbnail(getImageForRace(race)) // Add race image
+      .setThumbnail(getImageForRace(race, gender)) // Add race image
       .setImage(getImageForClass(characterClass)) // Add class image
-      .setFooter({ text: "This is a debug message. No actual level-up occurred." });
+      .setFooter({ text: getRandomFunFact() }); // Add a random fun fact in the footer
 
     // Send the debug message to the channel where the command was issued
     msg.reply({ embeds: [embed] });
@@ -412,7 +473,7 @@ async function runHourlyCheck() {
         continue;
       }
 
-      const { level: newLevel, equippedItemLevel } = characterData;
+      const { level: newLevel, equippedItemLevel, gender } = characterData;
 
       if (newLevel > entry.lastLevel) {
         console.log(`[${new Date().toISOString()}] Level up detected for ${entry.name}: ${entry.lastLevel} → ${newLevel}`);
@@ -427,20 +488,22 @@ async function runHourlyCheck() {
             `• **Class:** ${entry.characterClass}\n` +
             `• **Equipped Item Level:** ${equippedItemLevel}`
           )
-          .setThumbnail(getImageForRace(entry.race))
+          .setThumbnail(getImageForRace(entry.race, gender)) // Pass gender to getImageForRace
           .setImage(getImageForClass(entry.characterClass))
-          .setFooter({ text: "Keep up the grind!" });
+          .setFooter({ text: getRandomFunFact() });
 
         await channel.send({ embeds: [embed] });
 
         // Update the tracked data
         entry.lastLevel = newLevel;
         entry.equippedItemLevel = equippedItemLevel; // Update the equipped item level
+        entry.gender = gender; // Update the gender
         entry.lastChecked = new Date().toISOString();
         saveTracked();
       } else {
         console.log(`[${new Date().toISOString()}] No level up for ${entry.name}.`);
         entry.lastChecked = new Date().toISOString();
+        entry.gender = gender; // Update the gender even if no level-up occurred
         saveTracked();
       }
     }
