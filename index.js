@@ -52,8 +52,16 @@ async function getCharacterData(server, name) {
       console.error("Blizzard API access token is missing. Fetching a new token...");
       await fetchBlizzardAccessToken();
     }
+    let namespace;
+    if (server === "dreamscythe") {
+      namespace = "profile-classic-us";
+    } else if (server === "doomhowl") {
+      namespace = "profile-classic1x-us";
+    } else {
+      namespace = "profile-classic-us"; // yolo
+    }
 
-    const url = `https://us.api.blizzard.com/profile/wow/character/${server}/${name}?namespace=profile-classic-us`;
+    const url = `https://us.api.blizzard.com/profile/wow/character/${server}/${name}?namespace=${namespace}`;
     console.log(`Fetching character data from: ${url}`);
 
     const response = await axios.get(url, {
