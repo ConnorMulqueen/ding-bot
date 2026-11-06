@@ -1,0 +1,14 @@
+{
+  "cold-potato": {
+    "firstName": "Cold",
+    "lastName": "Potato",
+    "ruleset": "Normal",
+    "lastLevel": 12,
+    "race": "Human",
+    "characterClass": "Mage",
+    "equippedItemLevel": 10,
+    "gender": "MALE",
+    "lastChecked": "2026-11-06T15:00:00.000Z",
+    "channelId": "000000000000000000"
+  }
+}

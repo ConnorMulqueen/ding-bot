@@ -20,3 +20,6 @@ build/
 # IDE files (optional)
 .vscode/
 .idea/
+
+# Tracked characters (runtime data). See tracked.example.json for the shape.
+tracked.json
